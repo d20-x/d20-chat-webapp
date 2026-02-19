@@ -1,3 +1,6 @@
+// D20 Chat JavaScript - Version 2.0 (Message Fix)
+console.log('🚀 D20 Chat loaded - v2.0');
+
 // Инициализация Telegram Web App
 const tg = window.Telegram.WebApp;
 tg.ready();
@@ -91,8 +94,14 @@ function connectWebSocket(initData) {
 
 // Обработка WebSocket сообщений
 function handleWebSocketMessage(data) {
+    console.log('🔌 WebSocket message received:', data.type);
+    
     switch (data.type) {
         case 'new_message':
+            console.log('💬 New message from WebSocket:', {
+                id: data.message.id,
+                nickname: data.message.nickname
+            });
             addMessage(data.message);
             break;
         case 'online_count':
@@ -184,13 +193,22 @@ function renderMessagesAbove(newMessages) {
 
 // Добавление нового сообщения
 function addMessage(message, isLocal = false) {
+    // DEBUG: Логирование
+    console.log('📨 addMessage called:', {
+        id: message.id,
+        text: message.text?.substring(0, 30),
+        source: isLocal ? 'LOCAL' : 'WEBSOCKET',
+        nickname: message.nickname
+    });
+    
     // Проверка на дубликат
     const existing = messages.find(m => m.id === message.id);
     if (existing) {
-        console.log('Дубликат сообщения, игнорируем:', message.id);
+        console.log('⚠️ Duplicate message ignored:', message.id);
         return;
     }
     
+    console.log('✅ Message added to list');
     messages.push(message);
     const container = document.getElementById('messagesContainer');
     const messageElement = createMessageElement(message);
@@ -355,9 +373,17 @@ async function sendMessage() {
         if (response.ok) {
             const result = await response.json();
             
+            // DEBUG: Логирование отправки
+            console.log('📤 Message sent:', {
+                id: result.message?.id,
+                text: messageText.substring(0, 30),
+                user_id: result.message?.user_id
+            });
+            
             // Добавляем сообщение локально СРАЗУ
             // WebSocket может прийти позже, но мы проверим дубликат
             if (result.message) {
+                console.log('➕ Adding message locally');
                 addMessage(result.message, true); // true = локальное
             }
             
