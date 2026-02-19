@@ -183,7 +183,14 @@ function renderMessagesAbove(newMessages) {
 }
 
 // Добавление нового сообщения
-function addMessage(message) {
+function addMessage(message, isLocal = false) {
+    // Проверка на дубликат
+    const existing = messages.find(m => m.id === message.id);
+    if (existing) {
+        console.log('Дубликат сообщения, игнорируем:', message.id);
+        return;
+    }
+    
     messages.push(message);
     const container = document.getElementById('messagesContainer');
     const messageElement = createMessageElement(message);
@@ -322,6 +329,16 @@ async function sendMessage() {
     
     if (!text || text.length > 1000) return;
     
+    // Сохраняем текст до очистки
+    const messageText = text;
+    const replyToId = replyToMessage?.id || null;
+    
+    // Очищаем поле ввода сразу
+    input.value = '';
+    updateCharCounter();
+    autoResizeTextarea(input);
+    cancelReply();
+    
     try {
         const response = await fetch(`${API_URL}/api/send_message`, {
             method: 'POST',
@@ -330,16 +347,19 @@ async function sendMessage() {
             },
             body: JSON.stringify({
                 init_data: tg.initData,
-                text: text,
-                reply_to_id: replyToMessage?.id || null
+                text: messageText,
+                reply_to_id: replyToId
             })
         });
         
         if (response.ok) {
-            input.value = '';
-            updateCharCounter();
-            autoResizeTextarea(input);
-            cancelReply();
+            const result = await response.json();
+            
+            // Добавляем сообщение локально СРАЗУ
+            // WebSocket может прийти позже, но мы проверим дубликат
+            if (result.message) {
+                addMessage(result.message, true); // true = локальное
+            }
             
             // Вибрация
             if (tg.HapticFeedback) {
