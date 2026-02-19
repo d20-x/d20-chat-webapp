@@ -1,5 +1,6 @@
-// D20 Chat JavaScript - Version 2.0 (Message Fix)
-console.log('🚀 D20 Chat loaded - v2.0');
+// D20 Chat JavaScript - Version 2.1 (WebSocket Keep-Alive Fix)
+console.log('🚀 D20 Chat loaded - v2.1 (WebSocket Fixed)');
+console.log('🔧 Keep-alive: enabled, ping every 30s');
 
 // Инициализация Telegram Web App
 const tg = window.Telegram.WebApp;
@@ -12,6 +13,7 @@ const WS_URL = API_URL.replace('http', 'ws') + '/ws';
 
 // Глобальные переменные
 let ws = null;
+let pingInterval = null; // Keep-alive для WebSocket
 let currentUser = null;
 let messages = [];
 let replyToMessage = null;
@@ -71,23 +73,53 @@ async function initChat() {
 
 // Подключение к WebSocket
 function connectWebSocket(initData) {
+    // Очистка старого интервала если был
+    if (pingInterval) {
+        clearInterval(pingInterval);
+        pingInterval = null;
+    }
+    
     ws = new WebSocket(`${WS_URL}?init_data=${encodeURIComponent(initData)}`);
     
     ws.onopen = () => {
-        console.log('WebSocket подключен');
+        console.log('✅ WebSocket подключен');
+        
+        // Запускаем keep-alive пинги каждые 30 секунд
+        pingInterval = setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                console.log('🏓 Ping...');
+                ws.send(JSON.stringify({ type: 'ping' }));
+            }
+        }, 30000); // 30 секунд
     };
     
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
+        
+        // Обработка pong от сервера
+        if (data.type === 'pong') {
+            console.log('🏓 Pong received');
+            return;
+        }
+        
         handleWebSocketMessage(data);
     };
     
     ws.onerror = (error) => {
-        console.error('WebSocket ошибка:', error);
+        console.error('❌ WebSocket ошибка:', error);
     };
     
-    ws.onclose = () => {
-        console.log('WebSocket отключен, переподключение...');
+    ws.onclose = (event) => {
+        console.log('⚠️ WebSocket отключен:', event.code, event.reason);
+        
+        // Очистка ping интервала
+        if (pingInterval) {
+            clearInterval(pingInterval);
+            pingInterval = null;
+        }
+        
+        // Переподключение через 3 секунды
+        console.log('🔄 Переподключение через 3 секунды...');
         setTimeout(() => connectWebSocket(initData), 3000);
     };
 }
