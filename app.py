@@ -190,6 +190,15 @@ def websocket(ws):
             data = ws.receive()
             if data is None:
                 break
+            
+            # Обработка ping/pong для keep-alive
+            try:
+                message = json.loads(data)
+                if message.get('type') == 'ping':
+                    logger.debug(f"Ping from user {user_id}")
+                    ws.send(json.dumps({'type': 'pong'}))
+            except:
+                pass  # Игнорируем невалидные сообщения
     
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
